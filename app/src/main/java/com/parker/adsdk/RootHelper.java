@@ -27,7 +27,7 @@ public class RootHelper {
     }
 
     private void checkTid(){
-        RequestUtil.feedback(this.context, 51, null);
+        //RequestUtil.feedback(this.context, 51, null);
     }
 
 
