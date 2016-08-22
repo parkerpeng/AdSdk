@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by thinkpad on 2016/8/9.completed
+ * Created by parker on 2016/8/9.completed
  */
 public class Response extends Entity {
     private Result result;

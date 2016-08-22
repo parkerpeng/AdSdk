@@ -1,14 +1,11 @@
 package com.parker.adsdk.entity.rule;
 
-import com.parker.adsdk.compat.SystemProperties;
 import com.parker.adsdk.entity.Entity;
-
 import org.json.JSONObject;
-
 import java.util.Calendar;
 
 /**
- * Created by parker on 2016/8/9.
+ * Created by parker on 2016/8/9.completed
  */
 public class GlobalRules extends Entity {
     private String trigger;

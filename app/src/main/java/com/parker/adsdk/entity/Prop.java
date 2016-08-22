@@ -7,7 +7,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Created by thinkpad on 2016/8/9.completed
+ * Created by parker on 2016/8/9.completed
  */
 public class Prop extends Entity {
     private String brand;

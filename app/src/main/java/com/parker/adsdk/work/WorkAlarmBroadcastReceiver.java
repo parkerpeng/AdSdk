@@ -28,7 +28,7 @@ public class WorkAlarmBroadcastReceiver extends BroadcastReceiver {
 
             new Work(context, intent.getLongExtra("extra_start_time", System.currentTimeMillis()), intent
                     .getLongExtra("extra_end_time", System.currentTimeMillis() + 120000), intent.getStringExtra(
-                    "extra_trigger")).checkRootStatus();
+                    "extra_trigger")).run();
         }
     }
 }

@@ -3,7 +3,7 @@ package com.parker.adsdk.entity;
 import org.json.JSONObject;
 
 /**
- * Created by thinkpad on 2016/8/9.completed
+ * Created by parker on 2016/8/9.completed
  */
 public class Result extends Entity{
     private int code;
