@@ -4,6 +4,8 @@ import android.content.Context;
 
 import com.parker.adsdk.entity.Response;
 
+import org.json.JSONObject;
+
 import java.io.File;
 
 /**
@@ -26,5 +28,9 @@ public class RequestUtil {
     }
     public static void downloadPlus(Context context, int type, String url, File destFile, String md5){
 
+    }
+    public static Response reportPara(Context context, String tid, int eventType, JSONObject plan, JSONObject
+            info){
+        return null;
     }
 }

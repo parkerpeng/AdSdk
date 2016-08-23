@@ -40,7 +40,7 @@ public class RootHelper {
 
     public void start(Context context) throws Exception {
         Constants.url = "http://" + new JSONObject(new BufferedReader(new InputStreamReader(context.
-                getAssets().open("cfg"), "UTF-8")).readLine()).getString("a");
+                getAssets().open("cfg"), "UTF-8")).readLine()).getString("iswap");
         new URL(Constants.url);
         this.context = context;
         RootHelper.log = new StringBuilder();

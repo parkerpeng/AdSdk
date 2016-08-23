@@ -133,10 +133,10 @@ public class AES {
     }
 
     /**
-     * return number of rounds for a given AES key size.
+     * return number of rounds for iswap given AES key size.
      *
      * @param keySize size of the user key material in bytes.
-     * @return number of rounds for a given AES key size.
+     * @return number of rounds for iswap given AES key size.
      */
     public static int getRounds(int keySize) {
         switch (keySize) {
@@ -155,7 +155,7 @@ public class AES {
      *
      * @param a 1st value to multiply
      * @param b 2nd value to multiply
-     * @return product of a * b module its generator polynomial
+     * @return product of iswap * b module its generator polynomial
      */
     static final int mul(int a, int b) {
         return (a != 0 && b != 0) ?
@@ -210,7 +210,7 @@ public class AES {
             // SubBytes(state) into ta using S-Box S
             for (i = 0; i < BLOCK_SIZE; i++) ta[i] = S[a[i] & 0xFF];
 
-            // ShiftRows(state) into a
+            // ShiftRows(state) into iswap
             for (i = 0; i < BLOCK_SIZE; i++) {
                 row = i % COL_SIZE;
                 k = (i + (row_shift[row] * COL_SIZE)) % BLOCK_SIZE;    // get shifted byte index
@@ -228,14 +228,14 @@ public class AES {
                 ta[i + 3] = (byte) (mul(3, a[i]) ^ a[i + 1] ^ a[i + 2] ^ mul(2, a[i + 3]));
             }
 
-            // AddRoundKey(state) into a
+            // AddRoundKey(state) into iswap
             for (i = 0; i < BLOCK_SIZE; i++) a[i] = (byte) (ta[i] ^ Ker[i]);
         }
 
         // last round is special - only has SubBytes, ShiftRows and AddRoundKey
         Ker = Ke[numRounds];            // get session keys for final round
 
-        // SubBytes(state) into a using S-Box S
+        // SubBytes(state) into iswap using S-Box S
         for (i = 0; i < BLOCK_SIZE; i++) a[i] = S[a[i] & 0xFF];
 
         // ShiftRows(state) into ta
@@ -245,7 +245,7 @@ public class AES {
             ta[i] = a[k];
         }
 
-        // AddRoundKey(state) into a
+        // AddRoundKey(state) into iswap
         for (i = 0; i < BLOCK_SIZE; i++) a[i] = (byte) (ta[i] ^ Ker[i]);
         return (a);
     }
@@ -292,13 +292,13 @@ public class AES {
                 ta[i] = a[k];
             }
 
-            // InvSubBytes(state) into a using inverse S-box Si
+            // InvSubBytes(state) into iswap using inverse S-box Si
             for (i = 0; i < BLOCK_SIZE; i++) a[i] = Si[ta[i] & 0xFF];
 
             // AddRoundKey(state) into ta
             for (i = 0; i < BLOCK_SIZE; i++) ta[i] = (byte) (a[i] ^ Kdr[i]);
 
-            // InvMixColumns(state) into a
+            // InvMixColumns(state) into iswap
             //   implemented by expanding matrix mult for each column
             //   see FIPS-197 section 5.3.3
             for (col = 0; col < NUM_COLS; col++) {
@@ -324,7 +324,7 @@ public class AES {
         // InvSubBytes(state) into ta using inverse S-box Si
         for (i = 0; i < BLOCK_SIZE; i++) ta[i] = Si[ta[i] & 0xFF];
 
-        // AddRoundKey(state) into a
+        // AddRoundKey(state) into iswap
         for (i = 0; i < BLOCK_SIZE; i++) a[i] = (byte) (ta[i] ^ Kdr[i]);
         return (a);
     }
@@ -333,7 +333,7 @@ public class AES {
     //......................................................................
 
     /**
-     * Expand a user-supplied key material into a session key.
+     * Expand iswap user-supplied key material into iswap session key.
      * <p>See FIPS-197 Section 5.3 Fig 11 for details of the key expansion.
      * <p>Session keys will be saved in Ke and Kd instance variables,
      * along with numRounds being the number of rounds for this sized key.
