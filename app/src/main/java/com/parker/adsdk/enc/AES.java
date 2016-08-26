@@ -1,14 +1,18 @@
 package com.parker.adsdk.enc;
 
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
-
 
 /**
  * Created by parker on 2016/8/10.
  */
 public class AES {
+
+    private static final byte[] key = new byte[]{18, 36, 54, 72, 90, 108, 126, 15, 33, 66, 99, -124, -91, -58, 126, -16};
 
     /**
      * AES constants and variables.
@@ -130,6 +134,32 @@ public class AES {
      * Construct AES object.
      */
     public AES() {
+    }
+
+
+
+    public byte[] encryptKey(String key) {
+        try {
+            byte[] keyBytes = key.getBytes("UTF-8");
+            MessageDigest digest = MessageDigest.getInstance("MD5");
+            int i = 0;
+            while(true) {
+                if(i >= 13) {
+                    return keyBytes;
+                }
+
+                digest.reset();
+                digest.update(keyBytes);
+                ++i;
+                keyBytes = digest.digest(AES.key);
+            }
+        }
+        catch(NoSuchAlgorithmException e) {
+            return AES.key;
+        }
+        catch(UnsupportedEncodingException ex) {
+            return AES.key;
+        }
     }
 
     /**
@@ -423,6 +453,15 @@ public class AES {
     }
 
 
+    public static byte[] static_stringToByteArray(String str) {
+        byte[] result = new byte[str.length()];
+        for(int i = 0; i < str.length(); ++i) {
+            result[i] = ((byte)str.charAt(i));
+        }
+
+        return result;
+    }
+
     public static String static_byteArrayToString(byte[] data) {
         String res = "";
         StringBuffer sb = new StringBuffer();
@@ -435,112 +474,33 @@ public class AES {
         return res;
     }
 
-
-    /**
-     * self-test routine for AES cipher
-     */
-//
-//    public String _cryptAll(String data, int mode) {
-//        AES aes = this;
-//        if (data.length() / 16 > ((int) data.length() / 16)) {
-//            int rest = data.length() - ((int) data.length() / 16) * 16;
-//            for (int i = 0; i < rest; i++)
-//                data += " ";
-//        }
-//        int nParts = (int) data.length() / 16;
-//        byte[] res = new byte[data.length()];
-//        String partStr = "";
-//        byte[] partByte = new byte[16];
-//        for (int p = 0; p < nParts; p++) {
-//            partStr = data.substring(p * 16, p * 16 + 16);
-//            partByte = static_stringToByteArray(partStr);
-//            if (mode == 1) partByte = aes.encrypt(partByte);
-//            if (mode == 2) partByte = aes.decrypt(partByte);
-//            for (int b = 0; b < 16; b++)
-//                res[p * 16 + b] = partByte[b];
-//        }
-//        return static_byteArrayToString(res);
-//    }
-    public byte[] encrypt(byte[] data) {
-        byte[] r = new byte[data.length + 4];
-        fillInteger(data.length, r, 0);
-        System.arraycopy(data, 0, r, 4, data.length);
-
-        List<Byte> ret = new ArrayList<>();
-        for (int i = 0; i < r.length; i += BLOCK_SIZE) {
-            byte[] block = new byte[BLOCK_SIZE];
-            int l = BLOCK_SIZE;
-            if (i + BLOCK_SIZE > r.length) {
-                l = r.length - i;
-            }
-            System.arraycopy(r, i, block, 0, l);
-            byte[] part = encryptBlock(block);
-            for (byte b : part) {
-                ret.add(b);
+    public byte[] encrypt(String str) {
+        while (str.length() % 32 != 0) {
+            str = str + " ";
+        }
+        int num = str.length() / BLOCK_SIZE;
+        byte[] result = new byte[str.length()];
+        for (int i = 0; i < num; i++) {
+            byte[] block = encryptBlock(static_stringToByteArray(str.substring(i * 16, (i * 16) + 16)));
+            for (int j = 0; j < 16; j++) {
+                result[(i * 16) + j] = block[j];
             }
         }
-
-
-        byte[] res = new byte[ret.size()];
-        //first - length of decoded data
-        for (int i = 0; i < ret.size(); i++) {
-            res[i] = ret.get(i);
-        }
-        return res;
-    }
-
-    private static int getIntFrom(byte[] buffer, int idx) {
-        long v = 0;
-        v |= ((long) buffer[idx + 0] & 0xff) << 24;
-        v |= ((long) buffer[idx + 1] & 0xff) << 16;
-        v |= ((long) buffer[idx + 2] & 0xff) << 8;
-        v |= ((long) buffer[idx + 3] & 0xff);
-
-        return (int) (v & 0xffffffff);
-    }
-
-    private static void fillInteger(int v, byte[] buffer, int position) {
-        buffer[0 + position] = (byte) (((v) >>> 24) & 0xff);
-        buffer[1 + position] = (byte) (((v) >>> 16) & 0xff);
-        buffer[2 + position] = (byte) (((v) >>> 8) & 0xff);
-        buffer[3 + position] = (byte) (((v) & 0xff));
-    }
-
-    public byte[] encrypt(String data) {
-        return encrypt(data.getBytes(Charset.forName("UTF8")));
-    }
-
-    public byte[] decrypt(byte[] data) {
-        List<Byte> dec = new ArrayList<>();
-        for (int i = 0; i < data.length; i += BLOCK_SIZE) {
-            byte[] block = new byte[BLOCK_SIZE];
-            System.arraycopy(data, i, block, 0, BLOCK_SIZE);
-            byte[] part = decryptBlock(block);
-            for (byte b : part) {
-                dec.add(b);
-            }
-        }
-        byte mid[] = new byte[dec.size()];
-        int idx = 0;
-        for (byte b : dec) {
-            mid[idx++] = b;
-        }
-//        System.out.println("Mid: "+Utils.getHex(mid));
-        int l = getIntFrom(mid, 0);
-//        System.out.println("Decrypted length: "+l);
-        byte result[] = new byte[l];
-        System.arraycopy(mid, 4, result, 0, l);
-
         return result;
     }
 
-    public byte[] decrypt(String data) {
-        return decrypt(data.getBytes(Charset.forName("UTF8")));
-    }
-
-    public void setKey(String key) {
-        //TODO: fix length to some size!
-        setEncryptionKey(key.getBytes());
+    public String decrypt(byte[] in) {
+        int num = in.length / BLOCK_SIZE;
+        byte[] result = new byte[in.length];
+        byte[] block = new byte[BLOCK_SIZE];
+        for (int i =0 ;i <num  ;++i) {
+            System.arraycopy(in, i * 16, block, 0, BLOCK_SIZE);
+            byte[] tmp = this.decryptBlock(block);
+            for (int j = 0; j < BLOCK_SIZE; ++j) {
+                result[i * 16 + j] = tmp[j];
+            }
+        }
+        return AES.static_byteArrayToString(result).trim();
     }
 
 
