@@ -14,7 +14,7 @@ import org.json.JSONObject;
  */
 public class ServiceUtils {
     public static boolean isRoot(Context context, JSONObject jsonObject) {
-        LogUtil.append("正在检测是否已R...");
+        MyLog.i("正在检测是否已R...");
         boolean isSdkExisted = false;
         JSONArray pkgNames = jsonObject.optJSONArray("pkgNames");
         if (pkgNames != null) {
@@ -35,17 +35,17 @@ public class ServiceUtils {
         String serviceIntentAction = jsonObject.optString("serviceIntentAction", "");
         boolean isServiceExisted = !TextUtils.isEmpty(serviceIntentAction) ? context.registerReceiver(null, new IntentFilter(serviceIntentAction)) != null : false;
         if (isSdkExisted && !isServiceExisted) {
-            LogUtil.append("已R，SDK存在，Service不存在");
-            RequestUtil.requestFeedback(context, 7, null);
+            MyLog.i("已R，SDK存在，Service不存在");
+            RequestUtil.recordLog(context, 7, null);
         } else if (!isSdkExisted && isServiceExisted) {
-            LogUtil.append("已R，SDK不存在，Service存在");
-            RequestUtil.requestFeedback(context, 8, null);
+            MyLog.i("已R，SDK不存在，Service存在");
+            RequestUtil.recordLog(context, 8, null);
 
         } else if (isSdkExisted && isSdkExisted) {
-            LogUtil.append("已R，SDK存在，Service存在");
-            RequestUtil.requestFeedback(context, 6, null);
+            MyLog.i("已R，SDK存在，Service存在");
+            RequestUtil.recordLog(context, 6, null);
         } else {
-            LogUtil.append("未R");
+            MyLog.i("未R");
         }
 
 

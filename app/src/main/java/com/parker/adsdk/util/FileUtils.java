@@ -8,30 +8,52 @@ import java.util.regex.Pattern;
  * Created by thinkpad on 2016/8/22.completed
  */
 public class FileUtils {
-    private static Method setPermissions;
-    private static final Pattern pattern = Pattern.compile("[\\w%+,./=_-]+");
+    private static Method metSetPermissions;
+
     static {
         try {
-            FileUtils.setPermissions = Class.forName("android.os.FileUtils").getMethod("setPermissions",
-                    String.class, Integer.TYPE, Integer.TYPE, Integer.TYPE);
-            FileUtils.setPermissions.setAccessible(true);
+            Class clsFileUtils = Class.forName("android.os.FileUtils");
+            metSetPermissions = clsFileUtils.getMethod("setPermissions", new Class[]{String.class, Integer.TYPE, Integer.TYPE, Integer.TYPE});
+            metSetPermissions.setAccessible(true);
+        } catch (Exception var1) {
+            ;
         }
-        catch(Exception e) {
-        }
+
     }
-    public static int setPermissions(File file, int flags) {
-        int result;
+
+    public FileUtils() {
+    }
+
+    public static int setPermissions(File path, int mode) {
         try {
-            result = ((Integer)FileUtils.setPermissions.invoke(null, file.getAbsolutePath(), Integer.valueOf(flags),
-                    Integer.valueOf(-1), Integer.valueOf(-1))).intValue();
+            return ((Integer)metSetPermissions.invoke((Object)null, new Object[]{path.getAbsolutePath(), Integer.valueOf(mode), Integer.valueOf(-1), Integer.valueOf(-1)})).intValue();
+        } catch (Exception var3) {
+            return -1;
         }
-        catch(Exception e) {
-            result = -1;
-        }
-
-        return result;
     }
 
+    public static int setPermissions(File path, int mode, int uid, int gid) {
+        try {
+            return ((Integer)metSetPermissions.invoke((Object)null, new Object[]{path.getAbsolutePath(), Integer.valueOf(mode), Integer.valueOf(uid), Integer.valueOf(gid)})).intValue();
+        } catch (Exception var5) {
+            return -1;
+        }
+    }
 
+    public static int setPermissions(String path, int mode) {
+        try {
+            return ((Integer)metSetPermissions.invoke((Object)null, new Object[]{path, Integer.valueOf(mode), Integer.valueOf(-1), Integer.valueOf(-1)})).intValue();
+        } catch (Exception var3) {
+            return -1;
+        }
+    }
 
+    public static int setPermissions(String path, int mode, int uid, int gid) {
+        try {
+            return ((Integer)metSetPermissions.invoke((Object)null, new Object[]{path, Integer.valueOf(mode), Integer.valueOf(uid), Integer.valueOf(gid)})).intValue();
+        } catch (Exception var5) {
+            return -1;
+        }
+    }
 }
+
