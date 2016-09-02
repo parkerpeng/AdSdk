@@ -106,8 +106,8 @@ public class WorkHelper {
                         MyLog.i("释放helper...");
                         WorkHelper.extractHelper();
                         MyLog.i("释放成功, 开始R流程");
-                        WorkHelper.execHelper();
-                        //WorkHelper.startHelper();
+                        //WorkHelper.execHelper();
+                        WorkHelper.startHelper();
                     } catch (Throwable tr) {
                         MyLog.e("出现错误:" + tr);
                         PreferenceManager.getDefaultSharedPreferences(WorkHelper.context).edit().remove("initData").apply();

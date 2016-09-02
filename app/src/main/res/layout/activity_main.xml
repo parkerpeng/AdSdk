@@ -5,8 +5,11 @@
     android:layout_height="match_parent"
     tools:context="com.parker.adsdk.MainActivity">
 
-    <TextView
+    <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!" />
+        android:text="start root"
+        android:id="@+id/btnStart"
+        android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true" />
 </RelativeLayout>

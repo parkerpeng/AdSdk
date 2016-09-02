@@ -153,7 +153,7 @@ public class RequestUtil {
                 }
 
                 ++requestRetryCnt;
-                requestInit(context , firstRequest);
+                return requestInit(context , firstRequest);
             }
 
             return null;
@@ -549,7 +549,7 @@ public class RequestUtil {
                 }
 
                 ++requestRetryCnt;
-                requestRule(context);
+                return requestRule(context);
             }
 
         }
@@ -577,7 +577,7 @@ public class RequestUtil {
                 }
 
                 ++RequestUtil.requestRetryCnt;
-                RequestUtil.requestOta(context);
+                return RequestUtil.requestOta(context);
             }
 
             resp = null;

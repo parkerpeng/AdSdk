@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
 
-    <application>
+    <application android:name=".AdApplication">
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
