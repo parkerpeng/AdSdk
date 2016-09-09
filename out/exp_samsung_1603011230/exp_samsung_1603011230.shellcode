@@ -1,0 +1,12 @@
+@file offset:0x13A1C
+
+MOV     R0, R4          @ 04 00 A0 E1
+MOVS    R1, #0          @ 00 10 B0 E3
+MOVS    R2, R1          @ 01 20 B0 E1
+STMFD   SP!, {R4,R7}    @ 90 00 2D E9
+MOV     R7, #0xB        @ 0B 70 A0 E3
+SVC     0               @ 00 00 00 EF
+LDMFD   SP!, {R4,R7}    @ 90 00 BD E8
+ADD     SP, SP, #0x4000 @ 01 D9 8D E2
+ADD     SP, SP, #0x14   @ 14 D0 8D E2
+LDMFD   SP!, {R4-R11,PC}@ F0 8F BD E8
